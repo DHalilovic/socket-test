@@ -28,13 +28,25 @@ namespace AsyncTcp_01
                 serverSocket.Bind(ipe);
                 serverSocket.Listen(100);
                 serverSocket.BeginAccept(OnEndAccept, null);
-            } else
+            }
+            else
             {
                 clientSocket = new Socket(ipa.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
                 clientSocket.BeginConnect(ipe, OnEndConnect, null);
             }
 
-            Console.ReadKey();
+            short m = 2;
+
+            while (true)
+            {
+                if (Console.ReadKey().Key.Equals(ConsoleKey.F))
+                {
+                    Send(m);
+                }
+                else
+                    break;
+            }
+
             if (serverSocket != null)
                 serverSocket.Dispose();
             if (clientSocket != null)
@@ -45,18 +57,27 @@ namespace AsyncTcp_01
         {
             clientSocket = serverSocket.EndAccept(ar);
             clientSocket.NoDelay = true; // Improve performance
+
             stream = new BufferedStream(new NetworkStream(clientSocket));
+            stream.BeginRead(readBuffer, 0, readBuffer.Length, OnRead, null);
+
+            Console.WriteLine("Accepted client");
         }
 
         static void OnEndConnect(IAsyncResult ar)
         {
             clientSocket.EndConnect(ar);
+            clientSocket.NoDelay = true; // Improve performance
+
             stream = new BufferedStream(new NetworkStream(clientSocket));
             stream.BeginRead(readBuffer, 0, readBuffer.Length, OnRead, null);
+
+            Console.WriteLine("Connected to server");
         }
 
         static void OnRead(IAsyncResult ar)
         {
+            Console.WriteLine("Received");
             int length = stream.EndRead(ar);
 
             if (length <= 0)
@@ -67,12 +88,21 @@ namespace AsyncTcp_01
             {
                 Console.WriteLine(BitConverter.ToInt16(readBuffer, 0));
             }
+
+            stream.BeginRead(readBuffer, 0, readBuffer.Length, OnRead, null);
         }
 
         static void OnDisconnect()
         {
             stream.Dispose();
             clientSocket = null;
+        }
+
+
+        static void Send(short message)
+        {
+            clientSocket.BeginSend(BitConverter.GetBytes(message), 0, 2, 0, null, null);
+            Console.WriteLine("Sent");
         }
     }
 }
